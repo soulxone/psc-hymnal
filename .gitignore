@@ -1,0 +1,52 @@
+# ===== PSC Hymnal — .gitignore =====
+# NOTE: Git does not support inline (end-of-line) comments in .gitignore.
+# Every pattern must be on its own line.
+
+# --- Secrets & user data (NEVER commit) ---
+# settings.json contains the user's ESV API key.
+settings.json
+# passages.json caches ESV passage text (Crossway-copyrighted).
+passages.json
+# saved service playlists are user data
+playlists/
+*.key
+*.pem
+.env
+
+# --- Python ---
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# --- Build artifacts ---
+build/
+dist/
+*.manifest
+
+# --- Large downloaded media (re-fetch via README "Refreshing the library") ---
+audio/
+tools/midi/
+tools/mp3_zips/
+tools/mp3_extracted/
+tools/alllyrics.html
+tools/openhymnal-midi.zip
+*.zip
+
+# --- Vendored / downloaded offline-rendering toolchain (large binaries) ---
+tools/fluidsynth/
+*.sf2
+*.sf3
+
+# --- Editor / OS / tooling ---
+.claude/
+.firecrawl/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
