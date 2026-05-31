@@ -104,7 +104,7 @@ def run_oemer(img: Path, out_dir: Path, timeout: int = 2400) -> Optional[Path]:
     return None
 
 
-def musicxml_to_midi(xml: Path, midi: Path, tempo_bpm: int = 88,
+def musicxml_to_midi(xml: Path, midi: Path, tempo_bpm: int = 96,
                      gap_threshold: float = 8.0) -> Dict[str, object]:
     """Convert OMR MusicXML to a playable piano MIDI.
 
@@ -226,6 +226,8 @@ def main() -> int:
                     help="where to write .musicxml/.mid (default tools/sheet_music_out)")
     ap.add_argument("--emit-json", default="",
                     help="write a small JSON result file (for the app to consume)")
+    ap.add_argument("--tempo", type=int, default=96,
+                    help="playback tempo in BPM for the transcription (default 96)")
     args = ap.parse_args()
 
     src = Path(args.source).resolve()
@@ -262,7 +264,7 @@ def main() -> int:
     # 3. MusicXML -> piano MIDI
     print("[3/4] MusicXML -> piano MIDI")
     midi = outdir / f"{src.stem}.mid"
-    stats = musicxml_to_midi(xml, midi)
+    stats = musicxml_to_midi(xml, midi, tempo_bpm=args.tempo)
     print(f"      {stats['notes']} notes, pitch classes {stats['pitch_classes']}")
     print(f"      wrote {midi}")
 
