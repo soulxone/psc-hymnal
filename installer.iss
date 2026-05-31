@@ -3,7 +3,7 @@
 ; Compile with:  ISCC.exe installer.iss   (run from the hymnal_app folder)
 
 #define MyAppName "PSC Hymnal"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.2.0"
 #define MyAppPublisher "Pleasant Springs Church"
 #define MyAppURL "https://ps-church.com"
 #define MyAppExeName "PSC Hymnal.exe"
