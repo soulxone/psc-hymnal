@@ -6,13 +6,14 @@ during worship, with optional MIDI/MP3 playback. Sourced from
 
 ## What's included
 
-- **308 hymns** with full verse lyrics, parsed from openhymnal.org's
-  `alllyrics.html`
-- **132 MP3 recordings** from openhymnal.org's Christmas, Easter, and
-  Visitation special-edition packs (real instrumentation, not synth)
-- **151 MIDI fallbacks** matched from `OpenHymnal2014.06-midi.zip`
-  (plays through the OS GM synthesizer — adequate but tinny)
-- **25 hymns are lyrics-only** (no audio available from openhymnal yet)
+- **1,718 hymns** with full verse lyrics, from two public-domain sources:
+  - **308** from [The Open Hymnal Project](http://openhymnal.org/) — most
+    with real-instrument MP3 and/or MIDI audio
+  - **1,410** parsed from public-domain [Project Gutenberg](https://www.gutenberg.org/)
+    hymnals — *Hymns for Christian Devotion* (1846, #20476) and *A Book of
+    Hymns for Public and Private Devotion* (1846, #33180) — lyrics-only
+- Audio is resolved per hymn from the `audio/` folder: the Open Hymnal set
+  ships with recordings (MP3 preferred over MIDI), and you can drop your own
 - Operator (control) window + fullscreen lyrics window on a second monitor
 - Search by title / author / lyric text
 - Service playlist — queue hymns in order, save/load as JSON
@@ -93,6 +94,22 @@ py tools/audio_report.py
 
 The `tools/mp3_zips/` and `tools/mp3_extracted/` folders are scratch space
 — safe to delete once `import_mp3s.py` has populated `audio/`.
+
+## Adding more public-domain hymns
+
+`tools/import_gutenberg.py` pulls complete public-domain hymnals from
+[Project Gutenberg](https://www.gutenberg.org/), parses them into the library
+schema, and **merges** them into `hymns.json` (existing hymns are left
+untouched; new ones are de-duplicated by slug). To add another hymnal, append
+its `{id, title, year}` to the `BOOKS` list and re-run:
+
+```powershell
+py tools/import_gutenberg.py --dry-run   # preview counts + sample, write nothing
+py tools/import_gutenberg.py             # merge into hymns.json
+```
+
+Only genuinely public-domain hymnals (pre-1929 / Project Gutenberg) are used,
+and every imported hymn is tagged with its `source`.
 
 ## Keyboard shortcuts
 
@@ -180,11 +197,12 @@ hymnal_app/
 │   ├── display.py             fullscreen lyrics window
 │   ├── audio.py               MIDI + media playback
 │   ├── library.py             hymn data model
-│   └── data/hymns.json        308 hymns (built from openhymnal.org)
+│   └── data/hymns.json        1,718 hymns (Open Hymnal + Project Gutenberg)
 ├── audio/                     drop-folder for audio (MIDI seeded)
 ├── playlists/                 saved service playlists (.json)
 └── tools/
     ├── build_library.py       parses openhymnal sources → hymns.json
+    ├── import_gutenberg.py    merges public-domain Gutenberg hymnals → hymns.json
     ├── alllyrics.html         (cached download)
     └── midi/                  (extracted MIDI files)
 ```
@@ -193,4 +211,10 @@ hymnal_app/
 
 Hymn text, MIDI, and arrangements: **The Open Hymnal Project**
 (<http://openhymnal.org/>), maintained by Brian J. Dumont.
-All hymns in this distribution are public domain in the USA.
+
+Additional public-domain hymn texts: **Project Gutenberg**
+(<https://www.gutenberg.org/>) — *Hymns for Christian Devotion* (1846, eBook
+#20476) and *A Book of Hymns for Public and Private Devotion* (1846, eBook
+#33180), imported via `tools/import_gutenberg.py`.
+
+All hymns in this distribution are public domain in the United States.
