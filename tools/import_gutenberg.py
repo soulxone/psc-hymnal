@@ -44,6 +44,13 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0 Safari/537.36"
 BOOKS = [
     {"id": 20476, "title": "Hymns for Christian Devotion", "year": 1846},
     {"id": 33180, "title": "A Book of Hymns for Public and Private Devotion", "year": 1846},
+    {"id": 16455, "title": "The Otterbein Hymnal", "year": 1890},
+    {"id": 44039, "title": "Hymns of the Early Church", "year": 1896},
+    # Evaluated and excluded:
+    #  #39440 "Sacred Hymns from the German" — German-language originals (not
+    #         useful for an English worship app; bilingual layout fragments).
+    #  #59884 "Spiritual Folk-Songs of Early America" — 1937 (compilation
+    #         copyright unclear) and yields 0 under this parser.
 ]
 
 URL_TEMPLATES = [
@@ -51,8 +58,18 @@ URL_TEMPLATES = [
     "https://www.gutenberg.org/files/{id}/{id}-h/{id}-h.htm",
 ]
 
-VN_RE = re.compile(r"^\s*\d+\s*")
-AUTHOR_CLASSES = ("sc", "author", "auth", "byline", "attribution")
+VN_RE = re.compile(r"^\s*\d+[.)]?\s*")  # leading verse number: "1", "1.", "1)"
+AUTHOR_CLASSES = ("sc", "author", "auth", "byline", "attribution", "aut")
+HYMN_ID_RE = re.compile(r"^h\d+$")
+
+
+def is_hymn_unit(tag) -> bool:
+    """A hymn container: <div id="hNNN"> or <div class="hymn">."""
+    if getattr(tag, "name", None) != "div":
+        return False
+    if HYMN_ID_RE.match(tag.get("id") or ""):
+        return True
+    return "hymn" in (tag.get("class") or [])
 
 
 def slugify(s: str) -> str:
@@ -105,14 +122,20 @@ def extract_verses(hymn_div) -> List[Dict]:
     return verses
 
 
-def extract_author(hymn_div) -> str:
+def extract_author(hymn_div):
+    """Return (author, year_or_None). Splits a trailing year like 'Watts, 1707'."""
     for cls in AUTHOR_CLASSES:
         el = hymn_div.find(class_=cls)
         if el:
             a = clean(el.get_text(" ", strip=True)).strip(".").strip()
             if a and not re.fullmatch(r"[\d.\s]+", a):
-                return a
-    return "Unknown"
+                year = None
+                m = re.search(r",?\s*\b(1[5-9]\d\d|20[0-2]\d)\b\.?\s*$", a)
+                if m:
+                    year = int(m.group(1))
+                    a = a[: m.start()].strip().rstrip(",").strip()
+                return (a or "Unknown"), year
+    return "Unknown", None
 
 
 def title_from(verses: List[Dict]) -> str:
@@ -124,7 +147,11 @@ def title_from(verses: List[Dict]) -> str:
 def parse_book(html: str, book: Dict) -> List[Dict]:
     soup = BeautifulSoup(html, "html.parser")
     out: List[Dict] = []
-    for hd in soup.find_all("div", id=re.compile(r"^h\d+$")):
+    units = soup.find_all(is_hymn_unit)
+    # Drop any unit nested inside another unit (avoids double-counting verses).
+    unit_set = set(map(id, units))
+    units = [u for u in units if not any(id(p) in unit_set for p in u.parents)]
+    for hd in units:
         verses = extract_verses(hd)
         if not verses:
             continue
@@ -132,14 +159,15 @@ def parse_book(html: str, book: Dict) -> List[Dict]:
         if len(title) < 3:
             continue
         meter_el = hd.find(class_="meter")
+        author, ayear = extract_author(hd)
         out.append({
             "id": slugify(title),
             "title": title,
-            "author": extract_author(hd),
+            "author": author,
             "composer": "",
             "tune": "",
             "meter": clean(meter_el.get_text(" ", strip=True)) if meter_el else "",
-            "year": book["year"],
+            "year": ayear or book["year"],
             "copyright": "public domain",
             "source": f"Project Gutenberg #{book['id']} - {book['title']}",
             "verses": verses,
@@ -187,12 +215,21 @@ def main() -> int:
     print(f"\nNEW: {len(added)}   library: {len(existing)} -> {len(existing) + len(added)}")
 
     if args.dry_run:
-        print("\n--- sample of new hymns ---")
-        for h in added[:4]:
-            print(f"\n* {h['title']}  [{h['author']} | {h['meter']}]  ({h['source']})")
-            for v in h["verses"][:1]:
-                for ln in v["lines"]:
-                    print(f"    {ln}")
+        longt = sum(1 for h in added if len(h["title"]) > 90)
+        unk = sum(1 for h in added if h["author"] == "Unknown")
+        dupline = sum(1 for h in added if any(
+            len(ln) > 60 and ln[: len(ln) // 2].strip() == ln[len(ln) // 2:].strip()
+            for v in h["verses"] for ln in v["lines"]))
+        print(f"\nquality: titles>90={longt}, author=Unknown {unk}/{len(added)}, "
+              f"obvious doubled-lines={dupline}")
+        idxs = sorted(set([0, len(added)//5, 2*len(added)//5, 3*len(added)//5,
+                           4*len(added)//5, len(added)-1])) if added else []
+        for i in idxs:
+            h = added[i]
+            print(f"\n* {h['title'][:80]}  [{h['author']} | {h.get('year')}]  "
+                  f"({h['source'].split(' - ')[-1]})")
+            for ln in h["verses"][0]["lines"]:
+                print(f"    {ln}")
         return 0
 
     payload["hymns"] = existing + added

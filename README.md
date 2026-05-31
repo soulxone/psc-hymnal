@@ -6,14 +6,14 @@ during worship, with optional MIDI/MP3 playback. Sourced from
 
 ## What's included
 
-- **1,718 hymns** with full verse lyrics, from two public-domain sources:
-  - **308** from [The Open Hymnal Project](http://openhymnal.org/) — most
-    with real-instrument MP3 and/or MIDI audio
-  - **1,410** parsed from public-domain [Project Gutenberg](https://www.gutenberg.org/)
-    hymnals — *Hymns for Christian Devotion* (1846, #20476) and *A Book of
-    Hymns for Public and Private Devotion* (1846, #33180) — lyrics-only
-- Audio is resolved per hymn from the `audio/` folder: the Open Hymnal set
-  ships with recordings (MP3 preferred over MIDI), and you can drop your own
+- **2,199 hymns** with full verse lyrics, all public domain in the U.S.:
+  - **308** from [The Open Hymnal Project](http://openhymnal.org/)
+  - **1,891** parsed from public-domain [Project Gutenberg](https://www.gutenberg.org/)
+    hymnals (see [Credits](#credits))
+- **Audio for 816 hymns**, resolved per hymn from the `audio/` folder:
+  real-instrument MP3s from the Open Hymnal set, plus MIDI tunes matched from
+  [The Cyber Hymnal™](http://www.hymntime.com/tch/) for hundreds more. MP3 is
+  preferred over MIDI, and you can drop in your own (see below)
 - Operator (control) window + fullscreen lyrics window on a second monitor
 - Search by title / author / lyric text
 - Service playlist — queue hymns in order, save/load as JSON
@@ -213,8 +213,14 @@ Hymn text, MIDI, and arrangements: **The Open Hymnal Project**
 (<http://openhymnal.org/>), maintained by Brian J. Dumont.
 
 Additional public-domain hymn texts: **Project Gutenberg**
-(<https://www.gutenberg.org/>) — *Hymns for Christian Devotion* (1846, eBook
-#20476) and *A Book of Hymns for Public and Private Devotion* (1846, eBook
-#33180), imported via `tools/import_gutenberg.py`.
+(<https://www.gutenberg.org/>), imported via `tools/import_gutenberg.py`:
+*Hymns for Christian Devotion* (1846, #20476), *A Book of Hymns for Public and
+Private Devotion* (1846, #33180), *The Otterbein Hymnal* (1890, #16455), and
+*Hymns of the Early Church* (1896, #44039).
+
+Public-domain MIDI tunes for many of the added hymns: **The Cyber Hymnal™**
+(<http://www.hymntime.com/tch/>), obtained from their offered bulk downloads
+and used per their stated permission to repost public-domain material with
+attribution (`tools/fetch_cyberhymnal_midi.py`).
 
 All hymns in this distribution are public domain in the United States.
