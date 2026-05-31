@@ -111,6 +111,33 @@ py tools/import_gutenberg.py             # merge into hymns.json
 Only genuinely public-domain hymnals (pre-1929 / Project Gutenberg) are used,
 and every imported hymn is tagged with its `source`.
 
+## Reading sheet music (Optical Music Recognition)
+
+`tools/import_sheet_music.py` reads a **sheet-music PDF or image**, recognizes
+the notation with [oemer](https://github.com/BreezeWhite/oemer) (Optical Music
+Recognition), and turns it into a **playable piano track** — a MIDI plus an
+optional real-piano MP3 rendered through the bundled FluidSynth + SoundFont.
+With `--add` it registers the result as a hymn so the app can play it.
+
+OMR is heavy (ONNX models, OpenCV, ~400 MB), so it lives in a **separate venv**
+and is *never* bundled into the shipped app — the app just plays the audio it
+produces:
+
+```powershell
+py -m venv .venv_omr
+.venv_omr\Scripts\python -m pip install -r tools/requirements-omr.txt
+
+# read a score, render a piano MP3, and add it as a playable hymn
+.venv_omr\Scripts\python tools\import_sheet_music.py "Amazing Grace.pdf" --mp3 --add
+```
+
+The tool prints the detected title, flags whether the piece is already in the
+library, and writes `.musicxml` / `.mid` / `.mp3` to `tools/sheet_music_out/`.
+
+> ⚠️ **OMR is approximate.** Clean, engraved scores (e.g. hymnary.org lead
+> sheets) work best; expect occasional wrong notes or rhythms, especially on
+> scans or handwriting. Always listen to the result before using it in worship.
+
 ## Keyboard shortcuts
 
 | Key            | Action                          |

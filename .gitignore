@@ -15,6 +15,7 @@ playlists/
 
 # --- Python ---
 .venv/
+.venv_omr/
 venv/
 env/
 __pycache__/
@@ -45,6 +46,15 @@ tools/cyberhymnal/
 tools/fluidsynth/
 *.sf2
 *.sf3
+
+# --- Sheet-music OMR scratch + output (derived) ---
+tools/sheet_music_out/
+tools/_*.png
+tools/_*.mid
+tools/_*.musicxml
+*.musicxml
+# input scores dropped in for OMR — not part of the codebase
+*.pdf
 
 # --- Editor / OS / tooling ---
 .claude/

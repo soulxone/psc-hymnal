@@ -1,0 +1,14 @@
+# Optical Music Recognition (sheet-music reading) — tooling only.
+# These are HEAVY (onnxruntime, opencv, scikit-learn ~400 MB) and are NOT part
+# of the shipped app. Install them in a SEPARATE venv used only by
+# tools/import_sheet_music.py:
+#
+#   py -m venv .venv_omr
+#   .venv_omr\Scripts\python -m pip install -r tools/requirements-omr.txt
+#
+# The app itself just plays the resulting MIDI/MP3 — see requirements.txt for
+# the (light) app runtime deps.
+
+oemer>=0.1.8        # end-to-end OMR: score image -> MusicXML (ONNX models)
+music21>=9          # MusicXML -> MIDI, force Piano instrument
+pymupdf>=1.24       # render PDF pages to images + read the text layer
