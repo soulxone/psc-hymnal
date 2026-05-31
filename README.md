@@ -33,6 +33,37 @@ pip install -r requirements.txt
 py run.py
 ```
 
+## API keys & secrets
+
+This app needs **one** secret — a free **ESV API key** from Crossway — and
+only if you want to project Bible passages. Hymn lyrics and audio playback
+need no key at all.
+
+**Get your own key (free, ~2 minutes):**
+
+1. Sign up at <https://api.esv.org/account/create-application/>
+2. Create an "application" (any name — e.g. "My Church Hymnal")
+3. Copy the API token (looks like ~40 hex characters)
+4. Launch the app, open **Bible → ESV API Key…**, paste it, click OK
+
+Crossway's free tier allows 5,000 verse fetches/day — ample for worship use.
+Your key is sent only to Crossway, never to the maintainers.
+
+**Where your key is stored — and why it's never in this repo:**
+
+Your key is saved locally in `settings.json`, next to your other preferences:
+
+| How you run it | Location of `settings.json`            |
+| -------------- | -------------------------------------- |
+| Installed app  | `%APPDATA%\PSC Hymnal\settings.json`   |
+| From source    | `hymnal_app\settings.json` (this repo) |
+
+> ⚠️ **`settings.json` is listed in `.gitignore` and must never be committed
+> or shared** — it holds *your* private key. See
+> [`settings.example.json`](settings.example.json) for the key-free format.
+> The maintainers' own key is deliberately **not** in this repository; every
+> installation supplies its own. If you fork the project, keep it that way.
+
 ## Refreshing the library
 
 If openhymnal.org adds new hymns, re-run the downloaders:
@@ -79,15 +110,13 @@ The `tools/mp3_zips/` and `tools/mp3_extracted/` folders are scratch space
 ## Bible passages (ESV)
 
 The app can insert ESV Bible passages into the service playlist alongside
-hymns. ESV is copyrighted by Crossway, so you need their free API key:
+hymns. This needs a free ESV API key — see
+[API keys & secrets](#api-keys--secrets) above to obtain and configure your
+own. (ESV text is copyrighted by Crossway and is fetched with your key, never
+bundled in this repo.)
 
-1. Sign up at <https://api.esv.org/account/create-application/>
-2. Create an "application" (any name — e.g. "PSC Hymnal")
-3. Copy the API token
-4. In the app: **Bible → ESV API Key…** and paste
-
-Then **Bible → Add Passage…** (or `Ctrl+B`), type a reference like
-`John 3:16-17`, click **Look up**, **Add to Playlist**. The passage
+Once your key is set, **Bible → Add Passage…** (or `Ctrl+B`), type a reference
+like `John 3:16-17`, click **Look up**, **Add to Playlist**. The passage
 appears in the playlist with a 📖 marker. When selected, long passages
 auto-chunk into 2-verse slides for projection.
 
