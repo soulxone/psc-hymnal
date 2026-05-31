@@ -134,6 +134,12 @@ py -m venv .venv_omr
 The tool prints the detected title, flags whether the piece is already in the
 library, and writes `.musicxml` / `.mid` / `.mp3` to `tools/sheet_music_out/`.
 
+In the app itself, **Tools → Import Sheet Music…** runs this same pipeline when
+`.venv_omr` is present (it shows the setup steps above otherwise). Imported
+songs are saved to your personal library at
+`%APPDATA%\PSC Hymnal\user_hymns.json` (with audio in `%APPDATA%\PSC Hymnal\audio\`),
+so they sit alongside the bundled hymns and survive updates.
+
 > ⚠️ **OMR is approximate.** Clean, engraved scores (e.g. hymnary.org lead
 > sheets) work best; expect occasional wrong notes or rhythms, especially on
 > scans or handwriting. Always listen to the result before using it in worship.

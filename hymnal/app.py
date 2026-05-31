@@ -37,7 +37,7 @@ def main() -> int:
     user_audio_dir = data / "audio"
     user_audio_dir.mkdir(parents=True, exist_ok=True)
 
-    library = HymnLibrary(library_path)
+    library = HymnLibrary(library_path, user_json_path=data / "user_hymns.json")
     bible = BibleClient(cache_path=data / "passages.json")
 
     op = OperatorWindow(

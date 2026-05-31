@@ -40,17 +40,21 @@ class Hymn:
 
 
 class HymnLibrary:
-    def __init__(self, json_path: Path):
+    def __init__(self, json_path: Path, user_json_path: Optional[Path] = None):
         self.json_path = Path(json_path)
+        # Optional writable per-user library (e.g. songs imported from sheet
+        # music). Merged on top of the bundled, read-only library.
+        self.user_json_path = Path(user_json_path) if user_json_path else None
         self._hymns: List[Hymn] = []
         self.reload()
 
-    def reload(self) -> None:
-        raw = json.loads(self.json_path.read_text(encoding="utf-8"))
-        hymns: List[Hymn] = []
+    @staticmethod
+    def _parse(path: Path) -> List[Hymn]:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        out: List[Hymn] = []
         for h in raw.get("hymns", []):
-            verses = [Verse(label=v["label"], lines=list(v["lines"])) for v in h["verses"]]
-            hymns.append(
+            verses = [Verse(label=v["label"], lines=list(v["lines"])) for v in h.get("verses", [])]
+            out.append(
                 Hymn(
                     id=h["id"],
                     title=h["title"],
@@ -62,8 +66,40 @@ class HymnLibrary:
                     audio_filename=h.get("audio"),
                 )
             )
+        return out
+
+    def reload(self) -> None:
+        hymns = self._parse(self.json_path)
+        seen = {h.id for h in hymns}
+        if self.user_json_path and self.user_json_path.exists():
+            try:
+                for h in self._parse(self.user_json_path):
+                    if h.id not in seen:
+                        hymns.append(h)
+                        seen.add(h.id)
+            except Exception:
+                pass  # never let a bad user file break the bundled library
         hymns.sort(key=lambda x: x.title.lower())
         self._hymns = hymns
+
+    def add_user_hymn(self, entry: dict) -> None:
+        """Append (or replace) a hymn in the writable user library, then reload."""
+        if not self.user_json_path:
+            raise RuntimeError("no user library path configured")
+        data = {"hymns": []}
+        if self.user_json_path.exists():
+            try:
+                data = json.loads(self.user_json_path.read_text(encoding="utf-8"))
+            except Exception:
+                data = {"hymns": []}
+        hymns = [h for h in data.get("hymns", []) if h.get("id") != entry.get("id")]
+        hymns.append(entry)
+        data["hymns"] = hymns
+        self.user_json_path.parent.mkdir(parents=True, exist_ok=True)
+        self.user_json_path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        self.reload()
 
     @property
     def hymns(self) -> List[Hymn]:

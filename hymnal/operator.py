@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import re
+import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QProcess, QTimer
 from PyQt6.QtGui import QAction, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
@@ -21,6 +23,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
+    QProgressDialog,
     QPushButton,
     QSlider,
     QSplitter,
@@ -30,6 +33,7 @@ from PyQt6.QtWidgets import (
 )
 
 from .audio import AudioBackend
+from .paths import resource_root
 from .bible import ESV_ATTRIBUTION, BibleClient, Passage, chunk_passage_to_slides
 from .display import DisplayWindow
 from .karaoke import DEFAULT_BPM, HighlightSchedule, TempoData, words_per_second
@@ -82,6 +86,11 @@ class OperatorWindow(QMainWindow):
         self._show_active: bool = False
         self._auto_advance_song: bool = False
 
+        # Sheet-music (OMR) import — async external-process state
+        self._omr_proc: Optional[QProcess] = None
+        self._omr_dialog: Optional[QProgressDialog] = None
+        self._omr_source: str = ""
+
         # Karaoke highlight state
         self._karaoke_enabled: bool = True
         self._karaoke_speed: float = 1.0
@@ -126,6 +135,11 @@ class OperatorWindow(QMainWindow):
         api_key_act = QAction("ESV API Key…", self)
         api_key_act.triggered.connect(self._set_api_key_clicked)
         bible_menu.addAction(api_key_act)
+
+        tools_menu = menubar.addMenu("&Tools")
+        import_sheet_act = QAction("Import Sheet Music…", self)
+        import_sheet_act.triggered.connect(self._import_sheet_music)
+        tools_menu.addAction(import_sheet_act)
 
     def _build_ui(self) -> None:
         central = QWidget()
@@ -777,6 +791,173 @@ class OperatorWindow(QMainWindow):
         elapsed_ms = self.audio.position_ms() - self._karaoke_verse_start_ms
         idx = self._current_schedule.word_at(max(0, elapsed_ms) / 1000.0)
         self.display.set_highlight(idx)
+
+    # ------------------------------------------------ sheet-music (OMR) import
+    @staticmethod
+    def _slugify(s: str) -> str:
+        s = re.sub(r"\(.*?\)", "", s)
+        s = re.sub(r"\s+", " ", s).strip().lower()
+        s = re.sub(r"[^a-z0-9\s-]", "", s)
+        s = re.sub(r"\s+", "-", s)
+        return re.sub(r"-+", "-", s).strip("-")
+
+    def _find_omr(self) -> Tuple[Optional[Path], Optional[Path]]:
+        """Locate the OMR Python + import tool (separate optional add-on)."""
+        res = resource_root()
+        omr_py = next(
+            (p for p in (res / ".venv_omr" / "Scripts" / "python.exe",
+                         res / ".venv_omr" / "bin" / "python") if p.exists()),
+            None,
+        )
+        tool = res / "tools" / "import_sheet_music.py"
+        return omr_py, (tool if tool.exists() else None)
+
+    def _import_sheet_music(self) -> None:
+        if self._omr_proc is not None:
+            QMessageBox.information(self, "Busy", "A sheet-music import is already running.")
+            return
+        omr_py, tool = self._find_omr()
+        if not omr_py or not tool:
+            QMessageBox.information(
+                self,
+                "Sheet-music reader not set up",
+                "Reading sheet music uses Optical Music Recognition — a large, "
+                "optional add-on kept separate from the app.\n\n"
+                "To enable it, from the project folder run:\n\n"
+                "    py -m venv .venv_omr\n"
+                "    .venv_omr\\Scripts\\python -m pip install -r tools\\requirements-omr.txt\n\n"
+                "Then this menu reads a sheet-music PDF or image and adds it as a "
+                "playable hymn. (See the README, “Reading sheet music”.)",
+            )
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose sheet music (PDF or image)", "",
+            "Sheet music (*.pdf *.png *.jpg *.jpeg)",
+        )
+        if not path:
+            return
+
+        self._omr_source = path
+        outdir = self.user_audio_dir.parent / "sheet_import"
+        outdir.mkdir(parents=True, exist_ok=True)
+        result_json = outdir / "result.json"
+        if result_json.exists():
+            result_json.unlink()
+
+        self._omr_dialog = QProgressDialog(
+            "Reading sheet music and transcribing to piano…\n"
+            "This can take several minutes (runs offline on the CPU).",
+            "Cancel", 0, 0, self,
+        )
+        self._omr_dialog.setWindowTitle("Import Sheet Music")
+        self._omr_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self._omr_dialog.setMinimumWidth(440)
+        self._omr_dialog.canceled.connect(self._cancel_omr)
+
+        self._omr_proc = QProcess(self)
+        self._omr_proc.setProgram(str(omr_py))
+        self._omr_proc.setArguments(
+            [str(tool), path, "--mp3", "-o", str(outdir), "--emit-json", str(result_json)]
+        )
+        self._omr_proc.finished.connect(
+            lambda code, _st: self._on_omr_finished(code, result_json)
+        )
+        self._omr_proc.errorOccurred.connect(self._on_omr_error)
+        self.statusBar().showMessage("Reading sheet music…")
+        self._omr_proc.start()
+        self._omr_dialog.show()
+
+    def _cancel_omr(self) -> None:
+        if self._omr_proc is not None:
+            self._omr_proc.kill()
+
+    def _cleanup_omr(self) -> None:
+        if self._omr_dialog is not None:
+            self._omr_dialog.close()
+            self._omr_dialog = None
+        self._omr_proc = None
+
+    def _on_omr_error(self, err: QProcess.ProcessError) -> None:
+        if self._omr_proc is None or err != QProcess.ProcessError.FailedToStart:
+            return  # ignore Crashed from a user Cancel; finished() handles the rest
+        self._cleanup_omr()
+        self.statusBar().clearMessage()
+        QMessageBox.warning(self, "Import failed",
+                            "Could not start the sheet-music reader (.venv_omr).")
+
+    def _on_omr_finished(self, code: int, result_json: Path) -> None:
+        if self._omr_proc is None:
+            return  # already handled
+        canceled = self._omr_dialog is not None and self._omr_dialog.wasCanceled()
+        self._cleanup_omr()
+        self.statusBar().clearMessage()
+        if canceled:
+            return
+        if code != 0 or not result_json.exists():
+            QMessageBox.warning(
+                self, "Couldn't read that score",
+                "The reader didn't produce a result. Optical Music Recognition "
+                "works best on clean, engraved scores; scans and handwriting often "
+                "fail.")
+            return
+        try:
+            res = json.loads(result_json.read_text(encoding="utf-8"))
+        except Exception:
+            QMessageBox.warning(self, "Import failed", "Could not read the import result.")
+            return
+
+        title = (res.get("title") or Path(self._omr_source).stem).strip()
+        ident = res.get("identified_id")
+        if ident and self.library.get(ident):
+            self.search_edit.clear()
+            self._refresh_library_list()
+            self._select_library_hymn(ident)
+            QMessageBox.information(
+                self, "Already in your library",
+                f"That looks like “{self.library.get(ident).title}”, which is "
+                "already in the library — selected it for you.")
+            return
+
+        audio_src = res.get("audio") or res.get("midi")
+        if not audio_src or not Path(audio_src).exists():
+            QMessageBox.warning(self, "No audio produced",
+                                "The score was read but no playable audio was produced.")
+            return
+
+        slug = self._slugify(title) or "imported-song"
+        ext = Path(audio_src).suffix.lower() or ".mid"
+        dest = self.user_audio_dir / f"{slug}{ext}"
+        try:
+            shutil.copyfile(audio_src, dest)
+            self.library.add_user_hymn({
+                "id": slug, "title": title, "author": "Unknown",
+                "composer": "", "tune": "", "year": 0,
+                "copyright": "public domain" if res.get("public_domain") else "unknown",
+                "source": f"Sheet music (OMR): {Path(self._omr_source).name}",
+                "verses": [{"label": "Transcribed", "lines": [
+                    title, "(audio transcribed from sheet music — verify accuracy)"]}],
+                "audio": dest.name,
+            })
+        except Exception as e:
+            QMessageBox.warning(self, "Import failed", f"Could not add to library: {e}")
+            return
+
+        self.search_edit.clear()
+        self._refresh_library_list()
+        self._select_library_hymn(slug)
+        QMessageBox.information(
+            self, "Sheet music imported",
+            f"Added “{title}” with a transcribed piano track.\n\n"
+            "Optical Music Recognition is approximate — play it back and verify "
+            "before using it in worship.")
+
+    def _select_library_hymn(self, hymn_id: str) -> None:
+        for i in range(self.library_list.count()):
+            it = self.library_list.item(i)
+            if it.data(Qt.ItemDataRole.UserRole) == hymn_id:
+                self.library_list.setCurrentRow(i)
+                self.library_list.scrollToItem(it)
+                return
 
     # ----------------------------------------------------- settings/lifecycle
     def _load_settings(self) -> None:

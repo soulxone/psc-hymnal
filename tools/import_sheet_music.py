@@ -224,6 +224,8 @@ def main() -> int:
     ap.add_argument("--title", default="", help="override the auto-detected title")
     ap.add_argument("-o", "--outdir", default=str(TOOLS / "sheet_music_out"),
                     help="where to write .musicxml/.mid (default tools/sheet_music_out)")
+    ap.add_argument("--emit-json", default="",
+                    help="write a small JSON result file (for the app to consume)")
     args = ap.parse_args()
 
     src = Path(args.source).resolve()
@@ -284,6 +286,16 @@ def main() -> int:
         shutil.copyfile(chosen, dest_audio)
         msg = add_to_library(slug, title, meta, dest_audio.name)
         print(f"[add] copied audio -> {dest_audio.name}; {msg}")
+
+    if args.emit_json:
+        Path(args.emit_json).write_text(json.dumps({
+            "title": title,
+            "identified_id": known["id"] if known else None,
+            "public_domain": bool(meta.get("public_domain")),
+            "midi": str(midi),
+            "audio": str(audio_path) if audio_path else None,
+        }, indent=2), encoding="utf-8")
+        print(f"[json] wrote {args.emit_json}")
 
     print("\nDone. OMR is approximate — open the MIDI/MP3 and verify before use.")
     return 0
